@@ -10,6 +10,10 @@ from tkinter import Y, BOTH, TOP, LEFT, N, Toplevel, END
 from tkinter.ttk import Notebook
 from math import pow
 
+# pyinstaller --hidden-import=pkg_resources.py2_warn --onefile --noconsole MainWindow_RC.py
+# pyinstaller MainWindow.spec
+# ICON_MAKER http://www.rw-designer.com/online_icon_maker.php icon Maker
+
 # PROPERTIES OF AIR CONSTANT FOR NOW
 n = 1.4
 
@@ -17,35 +21,41 @@ n = 1.4
 # TODO Units
 # TODO Add status bar
 
-class Equation_solver():
+class GasDynamicsCalculatorError(Exception):
+    """
+    Base Class for Exception
+    """
+    pass
+
+
+class EquationSolver:
     """
     Collection of Methods to solve different Equations
     """
 
-    def ideal_compression_for_p(self, p1, p2, t1, t2, n):
+    @staticmethod
+    def ideal_compression_p_vs_t(p1, p2, t1, t2, g):
         """
         Solve Ideal Compression Law for Pressure
-        :return:
         """
         if p1 == 0 and (p2 * t1 * t2) != 0:
-            p1 = p2 * pow((t1 / t2), (n / (n - 1)))
+            p1 = p2 * pow((t1 / t2), (g / (g - 1)))
 
         if p2 == 0 and (p1 * t1 * t2) != 0:
-            p2 = p1 / pow((t1 / t2), (n / (n - 1)))
+            p2 = p1 * pow((t2 / t1), (g - 1) / g)
 
         if t1 == 0 and (p1 * p2 * t2) != 0:
-            t1 = t2 * pow((p1 / p2), ((n - 1) / n))
+            t1 = t2 * pow((p1 / p2), ((g - 1) / g))
 
         if t2 == 0 and (p1 * t1 * t2) != 0:
-            t2 = t1 / pow((p1 / p2), ((n - 1) / n))
+            t2 = t1 * pow((p2 / p1), ((g - 1) / g))
 
-            # return p1, p2, t1, t2, n
-        return p1, p2, t1, t2, n
+        return p1, p2, t1, t2, g
 
 
-class Entry_Property():
+class EntryProperty:
     """
-        Class to store air properties
+    Class to store air properties
     """
 
     def __init__(self, name):
@@ -60,7 +70,7 @@ class Entry_Property():
         return self.text
 
 
-class Tab_Form():
+class TabForm:
     """
     A class containing different operations in a form.
     """
@@ -71,54 +81,96 @@ class Tab_Form():
         self.field_list = []
         self.frame = frame
 
-    def add_property(self, name, default_value):
+    def add_property(self, name, initial_value):
         """
         Function to add a property in the frame
         :param name: Name of property
-        :param default_value: Default Value
+        :param initial_value: Default Value
         :return: None
         """
-        property = Entry_Property(name)
-        self.property_list.append(property)
-        property.default_value = default_value
+        item = EntryProperty(name)
+        self.property_list.append(item)
+        item.default_value = initial_value
 
     def add_labels(self):
         """
         Populated all fields of Labels
-        :return: None
         """
         row_count = 1
-        for property in self.property_list:
-            label = Label(self.frame, text=property.text)
+        for item in self.property_list:
+            label = Label(self.frame, text=item.text)
             label.grid(row=row_count, column=0)
             row_count += 1
 
     def add_entries(self):
         """
         Populates all fields of Labels, Adds default value and size of Entry Box
-        :return: None
         """
         row_count = 1
-        for property in self.property_list:
+        for _ in self.property_list:
             field = Entry(self.frame)
             field.grid(row=row_count, column=1, ipadx="50")
-            field.insert(0, property.default_value)
+            # field.insert(0, property.default_value)
             self.field_list.append(field)
             row_count += 1
 
     def clear_entries(self):
         """
-        Cleares the form
-        :return: None
+        Clears the form
         """
         i = 0
         while i < len(self.field_list):
             self.field_list[i].delete(0, END)
-            self.field_list[i].insert(0, self.property_list[i].default_value)
+            # self.field_list[i].insert(0, self.property_list[i].default_value)
             i += 1
 
+    @staticmethod
+    def get_input(form):
+        """
+        Performs sanity check of field read from a form.
+        """
+        if len(form.get()) == 0:
+            return 0
+        else:
+            value = form.get()
 
-class Tab_Ideal_Compression(Frame):
+        return_value = False
+        try:
+            value.is_integer()
+            return int(value)
+        except AttributeError:
+            pass
+
+        try:
+            value.isnumeric()
+            return float(value)
+        except ValueError:
+            pass
+
+        return return_value
+
+    @staticmethod
+    def sanity_check(parameter_list):
+        """
+        Sanity Check of Input
+        """
+
+        # CHECK IF ANY INPUT IS FALSE
+        if False in parameter_list:
+            return False
+
+        # CHECK IF ONLY ON VARIABLE IS MISSING
+        count_zero = 0
+        for item in parameter_list:
+            if item == 0:
+                count_zero += 1
+        if not count_zero == 1:
+            return False
+        else:
+            return True
+
+
+class TabIdealCompression(Frame):
     """
     Class for each Tab
     """
@@ -126,7 +178,8 @@ class Tab_Ideal_Compression(Frame):
     def __init__(self, nb):
         Frame.__init__(self, nb)
         self.parent = nb
-        self.form = Tab_Form(self)
+
+        self.form = TabForm(self)
 
         # Property name, default value,
         self.form.add_property("Pressure 1", 0)
@@ -145,26 +198,33 @@ class Tab_Ideal_Compression(Frame):
 
     def button_calculate(self):
         """
+        performs sanity check of the input
         Solves the Equation
         """
-        p1 = float(self.form.field_list[0].get())
-        p2 = float(self.form.field_list[1].get())
-        t1 = float(self.form.field_list[2].get())
-        t2 = float(self.form.field_list[3].get())
 
-        eq = Equation_solver()
-        p1, p2, t1, t2, n1 = eq.ideal_compression_for_p(p1, p2, t1, t2, n)
+        p1 = self.form.get_input(self.form.field_list[0])
+        p2 = self.form.get_input(self.form.field_list[1])
+        t1 = self.form.get_input(self.form.field_list[2])
+        t2 = self.form.get_input(self.form.field_list[3])
+
+        eq = EquationSolver()
+        if self.form.sanity_check((p1,p2,t1,t2)):
+            p1, p2, t1, t2, n1 = eq.ideal_compression_p_vs_t(p1, p2, t1, t2, n)
+        else:
+            messagebox.showerror(title="Error", message="Check Input Value")
+            return
+
         self.form.field_list[0].delete(0, END)
-        self.form.field_list[0].insert(0, p1)
+        self.form.field_list[0].insert(0, round(p1, 2))
 
         self.form.field_list[1].delete(0, END)
-        self.form.field_list[1].insert(0, p2)
+        self.form.field_list[1].insert(0, round(p2, 2))
 
         self.form.field_list[2].delete(0, END)
-        self.form.field_list[2].insert(0, t1)
+        self.form.field_list[2].insert(0, round(t1, 2))
 
         self.form.field_list[3].delete(0, END)
-        self.form.field_list[3].insert(0, t2)
+        self.form.field_list[3].insert(0, round(t2, 2))
 
     def button_clear(self):
         """
@@ -173,9 +233,9 @@ class Tab_Ideal_Compression(Frame):
         self.form.clear_entries()
 
 
-class Description_tab(Frame):
+class DescriptionTab(Frame):
     """
-    Placholder for other Tabs
+    Placeholder for other Tabs
     """
 
     # TODO Delete the class
@@ -194,7 +254,7 @@ class Description_tab(Frame):
         self.btn.pack()
 
 
-class Gas_Dynamics_Calculator(Frame):
+class GasDynamicsCalculator(Frame):
     """
     Main Window Class
     """
@@ -204,7 +264,7 @@ class Gas_Dynamics_Calculator(Frame):
         self.pack(expand=Y, fill=BOTH)
 
         self.master.title('Gas Dynamics Calculator')
-        self.master.iconbitmap('images//delete.png')
+        self.master.iconbitmap('images//paper_airplane16X16.ico')
         self.isapp = isapp
 
         # CREATE WIDGETS
@@ -217,13 +277,16 @@ class Gas_Dynamics_Calculator(Frame):
         self.flag_1 = False
         self.flag_2 = False
 
+        self.description_tab = None
+        self.ideal_compression_work = None
+
     def create_menu_panels(self):
         """
         Function creating menu panels
-        :return: None
         """
         # create the main menu (only displays if child of the 'root' window)
-        self.master.option_add('*tearOff', False)  # disable all tearoff's
+        self.master.option_add('*tearOff', False)  # disable all tear off's
+        # noinspection PyAttributeOutsideInit
         self.menu = Menu(self.master, name='menu')
         self.build_submenus()
         self.master.config(menu=self.menu)
@@ -309,14 +372,13 @@ class Gas_Dynamics_Calculator(Frame):
 
         help_menu.add_command(label='Disclaimer',
                               command=lambda: messagebox.showwarning(title="Disclaimer", message=disclaimer_msg))
-        help_menu.entryconfig(0, bitmap='questhead', compound=LEFT)
+        help_menu.entryconfig(0, bitmap="questhead", compound=LEFT)
 
     def show_help_menu_info_msg(self):
         """
         Display Info Message
-        :return: None
         """
-        copyright_symbol = u"\u00A9"
+        # copyright_symbol = u"\u00A9"
         window = Toplevel(self)
 
         info_msg = "A simple tool to calculate essential Gas Dynamic parameters " \
@@ -342,28 +404,31 @@ class Gas_Dynamics_Calculator(Frame):
         window.winfo_toplevel().bind('<Escape>', lambda x: window.destroy())
 
     def properties_of_air(self):
-        """ Menu to add or edit properties of Air"""
+        """
+        Menu to add or edit properties of Air
+        """
         pass
 
     def create_panels(self):
-        demoPanel = Frame(self, name='demo')
-        demoPanel.pack(side=TOP, fill=BOTH, expand=Y)
+
+        demo_panel = Frame(self, name='demo')
+        demo_panel.pack(side=TOP, fill=BOTH, expand=Y)
 
         # create the notebook
-        nb = Notebook(demoPanel, name='notebook')
+        nb = Notebook(demo_panel, name='notebook')
 
         # extend bindings to top level window allowing
-        #   CTRL+TAB - cycles thru tabs
+        #   CTRL+TAB - cycles through tabs
         #   SHIFT+CTRL+TAB - previous tab
         #   ALT+K - select tab using mnemonic (K = underlined letter)
         nb.enable_traversal()
-        self.ideal_compression_work = Tab_Ideal_Compression(nb)
+        self.ideal_compression_work = TabIdealCompression(nb)
         nb.add(self.ideal_compression_work, text="Ideal Compression", underline=0, padding=2)
 
-        self.description_tab = Description_tab(nb)
+        self.description_tab = DescriptionTab(nb)
         nb.add(self.description_tab, text="Name of Tab", underline=2, padding=2)
         nb.pack(fill=BOTH, expand=Y, padx=2, pady=3)
 
 
 if __name__ == '__main__':
-    Gas_Dynamics_Calculator().mainloop()
+    GasDynamicsCalculator().mainloop()
