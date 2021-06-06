@@ -1,13 +1,15 @@
 # !/usr/bin/env python3
 # coding: utf-8
+from Equations import EquationSolver
+
+__author__ = "Shushanth Prabhu"
 __email__ = "shushanth@gmail.com"
 __version__ = "1.0"
 
 # Built on Python 3.7.5
 from tkinter import Frame, Label, messagebox, Menu, Button, Entry
 from tkinter import Y, BOTH, TOP, LEFT, N, Toplevel, END
-from tkinter.ttk import Notebook
-from math import pow
+from tkinter.ttk import Notebook, Combobox
 
 # py installer --hidden-import=pkg_resources.py2_warn --one file --no console MainWindow_RC.py
 # py installer MainWindow.spec
@@ -15,41 +17,18 @@ from math import pow
 
 # PROPERTIES OF AIR CONSTANT FOR NOW
 n = 1.4
+unit_list_pressure = ("Pa", "bar", "N/sq mmm")
+unit_list_temperature = ("°C", "°F", "K")
 
 
 # TODO Units
 # TODO Add status bar
-# Add equations /Nikhil
+
 class GasDynamicsCalculatorError(Exception):
     """
     Base Class for Exception
     """
     pass
-
-
-class EquationSolver:
-    """
-    Collection of Methods to solve different Equations
-    """
-
-    @staticmethod
-    def ideal_compression_p_vs_t(p1, p2, t1, t2, g):
-        """
-        Solve Ideal Compression Law for Pressure
-        """
-        if p1 == 0 and (p2 * t1 * t2) != 0:
-            p1 = p2 * pow((t1 / t2), (g / (g - 1)))
-
-        if p2 == 0 and (p1 * t1 * t2) != 0:
-            p2 = p1 * pow((t2 / t1), (g - 1) / g)
-
-        if t1 == 0 and (p1 * p2 * t2) != 0:
-            t1 = t2 * pow((p1 / p2), ((g - 1) / g))
-
-        if t2 == 0 and (p1 * t1 * t2) != 0:
-            t2 = t1 * pow((p2 / p1), ((g - 1) / g))
-
-        return p1, p2, t1, t2, g
 
 
 class EntryProperty:
@@ -83,9 +62,6 @@ class TabForm:
     def add_property(self, name, initial_value):
         """
         Function to add a property in the frame
-        :param name: Name of property
-        :param initial_value: Default Value
-        :return: None
         """
         item = EntryProperty(name)
         self.property_list.append(item)
@@ -108,10 +84,14 @@ class TabForm:
         row_count = 1
         for _ in self.property_list:
             field = Entry(self.frame)
-            field.grid(row=row_count, column=1, ipadx="50")
+            field.grid(row=row_count, column=1, ipadx="30")
             # field.insert(0, property.default_value)
             self.field_list.append(field)
             row_count += 1
+        unit_choosen = None
+        units = Combobox(self.frame, width=12, textvariable=unit_choosen,values= unit_list_pressure)
+        units.grid(column=3, row=1)
+        units.current(0)
 
     def clear_entries(self):
         """
@@ -123,22 +103,6 @@ class TabForm:
             # self.field_list[i].insert(0, self.property_list[i].default_value)
             i += 1
 
-    @staticmethod
-    def _check_int_(number):
-        try:
-            number.is_integer()
-            return int(number)
-        except AttributeError:
-            raise GasDynamicsCalculatorError("Not Integer")
-
-    @staticmethod
-    def _check_float_(number):
-        try:
-            number.isnumeric()
-            return float(number)
-        except ValueError:
-            raise GasDynamicsCalculatorError("Not Float")
-
     def get_input(self, form, position):
         """
         Performs sanity check of field read from a form.
@@ -147,7 +111,6 @@ class TabForm:
             return 0
         else:
             value = form.get()
-
         try:
             value.is_integer()
             return int(value)
@@ -204,9 +167,7 @@ class TabIdealCompression(Frame):
     def __init__(self, nb):
         Frame.__init__(self, nb)
         self.parent = nb
-
         self.form = TabForm(self)
-
         # Property name, default value,
         self.form.add_property("Pressure 1", 0)
         self.form.add_property("Pressure 2", 0)
@@ -328,12 +289,9 @@ class GasDynamicsCalculator(Frame):
         :return: None
         """
         options_menu = Menu(self.menu, name='options_menu')
-
         self.menu.add_cascade(label='Options', menu=options_menu, underline=0)
-
         options_menu.add_command(label='Properties of Air',
                                  command=self.properties_of_air)
-
         self.add_sub_menu(options_menu)  # check buttons
         options_menu.add_separator()
         options_menu.add_command(label='Exit',
