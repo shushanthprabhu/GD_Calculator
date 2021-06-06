@@ -19,7 +19,7 @@ n = 1.4
 
 # TODO Units
 # TODO Add status bar
-
+# Add equations /Nikhil
 class GasDynamicsCalculatorError(Exception):
     """
     Base Class for Exception
