@@ -10,7 +10,7 @@ __version__ = "1.0"
 from tkinter import Frame, Label, messagebox, Menu, Button, Entry
 from tkinter import Y, BOTH, TOP, LEFT, N, Toplevel, END
 from tkinter.ttk import Notebook, Combobox
-
+from Equations import EquationSolver
 # py installer --hidden-import=pkg_resources.py2_warn --one file --no console MainWindow_RC.py
 # py installer MainWindow.spec
 # ICON_MAKER http://www.rw-designer.com/online_icon_maker.php icon Maker
