@@ -10,8 +10,8 @@ from tkinter import Y, BOTH, TOP, LEFT, N, Toplevel, END
 from tkinter.ttk import Notebook
 from math import pow
 
-# pyinstaller --hidden-import=pkg_resources.py2_warn --onefile --noconsole MainWindow_RC.py
-# pyinstaller MainWindow.spec
+# py installer --hidden-import=pkg_resources.py2_warn --one file --no console MainWindow_RC.py
+# py installer MainWindow.spec
 # ICON_MAKER http://www.rw-designer.com/online_icon_maker.php icon Maker
 
 # PROPERTIES OF AIR CONSTANT FOR NOW
@@ -125,7 +125,22 @@ class TabForm:
             i += 1
 
     @staticmethod
-    def get_input(form):
+    def _check_int_(number):
+        try:
+            number.is_integer()
+            return int(number)
+        except AttributeError:
+            raise GasDynamicsCalculatorError("Not Integer")
+
+    @staticmethod
+    def _check_float_(number):
+        try:
+            number.isnumeric()
+            return float(number)
+        except ValueError:
+            raise GasDynamicsCalculatorError("Not Float")
+
+    def get_input(self, form, position):
         """
         Performs sanity check of field read from a form.
         """
@@ -134,40 +149,52 @@ class TabForm:
         else:
             value = form.get()
 
-        return_value = False
         try:
             value.is_integer()
             return int(value)
         except AttributeError:
-            pass
-
-        try:
-            value.isnumeric()
-            return float(value)
-        except ValueError:
-            pass
-
-        return return_value
+            try:
+                value.isnumeric()
+                return float(value)
+            except ValueError:
+                error_string = "Check values in " + str(self.property_list[position])
+                raise GasDynamicsCalculatorError(error_string)
 
     @staticmethod
     def sanity_check(parameter_list):
         """
         Sanity Check of Input
         """
-
         # CHECK IF ANY INPUT IS FALSE
-        if False in parameter_list:
-            return False
+        # count_zero = 0
+        # for item in parameter_list:
+        #     if item == False:
+        #         count_zero += 0
+        # if not count_zero == 1:
+        #     raise GasDynamicsCalculatorError("Input is missing")
+        #     return False
 
-        # CHECK IF ONLY ON VARIABLE IS MISSING
+        # CHECK IF ONLY ONE VARIABLE IS MISSING
         count_zero = 0
         for item in parameter_list:
             if item == 0:
                 count_zero += 1
         if not count_zero == 1:
-            return False
-        else:
-            return True
+            raise GasDynamicsCalculatorError("More than One Input is not defined")
+            # return False
+
+        # IF ALL CONDITIONS ARE MET
+        return True
+
+    def put_output(self, parameter_list):
+        """
+        Updates the parameter list
+        """
+        i = 0
+        while i != len(parameter_list):
+            self.field_list[i].delete(0, END)
+            self.field_list[i].insert(0, round(parameter_list[i], 3))
+            i += 1
 
 
 class TabIdealCompression(Frame):
@@ -201,30 +228,23 @@ class TabIdealCompression(Frame):
         performs sanity check of the input
         Solves the Equation
         """
-
-        p1 = self.form.get_input(self.form.field_list[0])
-        p2 = self.form.get_input(self.form.field_list[1])
-        t1 = self.form.get_input(self.form.field_list[2])
-        t2 = self.form.get_input(self.form.field_list[3])
-
         eq = EquationSolver()
-        if self.form.sanity_check((p1,p2,t1,t2)):
-            p1, p2, t1, t2, n1 = eq.ideal_compression_p_vs_t(p1, p2, t1, t2, n)
-        else:
-            messagebox.showerror(title="Error", message="Check Input Value")
-            return
-
-        self.form.field_list[0].delete(0, END)
-        self.form.field_list[0].insert(0, round(p1, 2))
-
-        self.form.field_list[1].delete(0, END)
-        self.form.field_list[1].insert(0, round(p2, 2))
-
-        self.form.field_list[2].delete(0, END)
-        self.form.field_list[2].insert(0, round(t1, 2))
-
-        self.form.field_list[3].delete(0, END)
-        self.form.field_list[3].insert(0, round(t2, 2))
+        p1 = p2 = t1 = t2 = None
+        try:
+            p1 = self.form.get_input(self.form.field_list[0], 0)
+            p2 = self.form.get_input(self.form.field_list[1], 1)
+            t1 = self.form.get_input(self.form.field_list[2], 2)
+            t2 = self.form.get_input(self.form.field_list[3], 3)
+        except GasDynamicsCalculatorError as error:
+            error = str(error)
+            messagebox.showerror("Error", message=error)
+        try:
+            self.form.sanity_check((p1, p2, t1, t2))
+        except GasDynamicsCalculatorError as error:
+            error = str(error)
+            messagebox.showerror("Error", message=error)
+        p1, p2, t1, t2, n1 = eq.ideal_compression_p_vs_t(p1, p2, t1, t2, n)
+        self.form.put_output((p1, p2, t1, t2))
 
     def button_clear(self):
         """
