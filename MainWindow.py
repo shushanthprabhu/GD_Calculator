@@ -1,6 +1,5 @@
 # !/usr/bin/env python3
 # coding: utf-8
-from Equations import EquationSolver
 
 __author__ = "Shushanth Prabhu"
 __email__ = "shushanth@gmail.com"
@@ -28,6 +27,8 @@ unit_pressure_conversion = [(1, 0), (100000, 0), (6894.757, 0)]
 unit_list_temperature = ("K", "°C", "°F")
 unit_temperature_conversion = [(1, 0), (1, 273.15),
                                (0.55555555555555555555555555555556, 255.37222222222222222222222222222)]
+
+
 # K -> C +273.15
 
 # TODO Add status bar
@@ -44,15 +45,15 @@ class EntryProperty:
     Class to store air properties
     """
 
-    def __init__(self, name, type):
+    def __init__(self, name, property_type):
         self.text = name
         # self.default_value = default_value
         self.unit_input = 0
-        self.type = type
+        self.type = property_type
         self.read_value = None
+        self.actual_value = None
 
-    @property
-    def actual_value(self):
+    def convert_to_si(self):
         try:
             unit = self.units.index(self.unit_input)
             if unit == 0:
@@ -60,7 +61,19 @@ class EntryProperty:
             else:
                 return self.read_value * self.conversion[unit][0] + self.conversion[unit][1]
         except GasDynamicsCalculatorError as error:
-            raise GasDynamicsCalculatorError("Unit Conversion failed")
+            error = str(error)
+            raise GasDynamicsCalculatorError("Unit Conversion failed" + error)
+
+    def convert_from_si(self):
+        try:
+            unit = self.units.index(self.unit_input)
+            if unit == 0:
+                return self.actual_value
+            else:
+                return (self.actual_value - self.conversion[unit][1]) / self.conversion[unit][0]
+        except GasDynamicsCalculatorError as error:
+            error = str(error)
+            raise GasDynamicsCalculatorError("Unit Conversion failed" + error)
 
     @property
     def units(self):
@@ -102,11 +115,11 @@ class TabForm:
         self.unit_list = []
         self.frame = frame
 
-    def add_property(self, name, type):
+    def add_property(self, name, property_type):
         """
         Function to add a property in the frame
         """
-        item = EntryProperty(name, type)
+        item = EntryProperty(name, property_type)
         self.property_list.append(item)
         # item.default_value = item.default_value
 
@@ -115,15 +128,15 @@ class TabForm:
         Populates all fields of Labels, Adds default value and size of Entry Box
         """
         row_count = 1
-        for property in self.property_list:
-            label = Label(self.frame, text=property.text)
+        for item in self.property_list:
+            label = Label(self.frame, text=item.text)
             label.grid(row=row_count, column=0)
 
             field = Entry(self.frame)
             field.grid(row=row_count, column=1, ipadx="30")
             self.field_list.append(field)
 
-            units = Combobox(self.frame, width=12, values=property.units, state="readonly")
+            units = Combobox(self.frame, width=12, values=item.units, state="readonly")
             units.grid(column=3, row=row_count)
             units.current(0)
             self.unit_list.append(units)
@@ -187,15 +200,16 @@ class TabForm:
             # IF ALL CONDITIONS ARE MET
         return True
 
-    def put_output(self, parameter_list):
+    def put_output(self):
         """
         Updates the parameter list
         """
         i = 0
-        while i != len(parameter_list):
+        while i != len(self.property_list):
             self.field_list[i].delete(0, END)
-            self.field_list[i].insert(0, round(parameter_list[i], 6))
-            self.unit_list[i].set(self.property_list[i].default_unit)
+            self.property_list[i].read_value = self.property_list[i].convert_from_si()
+            self.field_list[i].insert(0, round(self.property_list[i].read_value, 6))
+            self.unit_list[i].set(self.property_list[i].unit_input)
             i += 1
 
     def read_form(self):
@@ -204,9 +218,8 @@ class TabForm:
             while i != len(self.property_list):
                 self.property_list[i].read_value = self.get_input(self.field_list[i], i)
                 self.property_list[i].unit_input = self.unit_list[i].get()
+                self.property_list[i].actual_value = self.property_list[i].convert_to_si()
                 i += 1
-
-
         except GasDynamicsCalculatorError as error:
             error = str(error)
             messagebox.showerror("Error", message=error)
@@ -256,7 +269,12 @@ class TabIdealCompression(Frame):
 
         p1, p2, t1, t2, n1 = eq.ideal_compression_p_vs_t(p1, p2, t1, t2, n)
 
-        self.form.put_output((p1, p2, t1, t2))
+        self.form.property_list[0].actual_value = p1
+        self.form.property_list[1].actual_value = p2
+        self.form.property_list[2].actual_value = t1
+        self.form.property_list[3].actual_value = t2
+
+        self.form.put_output()
 
     def button_clear(self):
         """
