@@ -13,23 +13,20 @@ from Equations import EquationSolver
 
 # py installer --hidden-import=pkg_resources.py2_warn --one file --no console MainWindow_RC.py
 # py installer MainWindow.spec
-# ICON_MAKER http://www.rw-designer.com/online_icon_maker.php icon Maker
-# https://www.fxsolver.com/solve/
+
 
 # PROPERTIES OF AIR CONSTANT FOR NOW
 n = 1.4
 # UNIT CONVERSION LIST
 # FIRST IS SI UNIT, CONVERSION TO SI FROM CORRESPONDING POSITION FORMAT y= mx +c
 # STORED AS (m,c)
-
+# FOR EXAMPLE K -> C +273.15
 unit_list_pressure = ["Pa", "bar", "PSi"]
 unit_pressure_conversion = [(1, 0), (100000, 0), (6894.757, 0)]
 unit_list_temperature = ("K", "°C", "°F")
 unit_temperature_conversion = [(1, 0), (1, 273.15),
                                (0.55555555555555555555555555555556, 255.37222222222222222222222222222)]
 
-
-# K -> C +273.15
 
 # TODO Add status bar
 
@@ -196,7 +193,6 @@ class TabForm:
         elif count_zero > 1:
             raise GasDynamicsCalculatorError("More than One Input is not defined")
             # return False
-
             # IF ALL CONDITIONS ARE MET
         return True
 
