@@ -5,9 +5,10 @@ __author__ = "Shushanth Prabhu"
 __email__ = "shushanth@gmail.com"
 __version__ = "1.0"
 
-# Built on Python 3.7.5
+# Built using Python 3.7.5
+
 from tkinter import Frame, Label, messagebox, Menu, Button, Entry
-from tkinter import Y, BOTH, TOP, LEFT, N, Toplevel, END
+from tkinter import Y, BOTH, LEFT, N, Toplevel, END, W, X, TclError  # TOP
 from tkinter.ttk import Notebook, Combobox
 from Equations import EquationSolver
 
@@ -16,11 +17,13 @@ from Equations import EquationSolver
 
 
 # PROPERTIES OF AIR CONSTANT FOR NOW
-n = 1.4
+default_n = 1.4  # -
+default_cp = 1005  # UNIT J/Kg K
+
 # UNIT CONVERSION LIST
 # FIRST IS SI UNIT, CONVERSION TO SI FROM CORRESPONDING POSITION FORMAT y= mx +c
 # STORED AS (m,c)
-# FOR EXAMPLE K -> C +273.15
+# FOR EXAMPLE K -> C +273.15 -> 1,273.15
 unit_list_pressure = ["Pa", "bar", "PSi"]
 unit_pressure_conversion = [(1, 0), (100000, 0), (6894.757, 0)]
 unit_list_temperature = ("K", "°C", "°F")
@@ -28,11 +31,9 @@ unit_temperature_conversion = [(1, 0), (1, 273.15),
                                (0.55555555555555555555555555555556, 255.37222222222222222222222222222)]
 
 
-# TODO Add status bar
-
 class GasDynamicsCalculatorError(Exception):
     """
-    Base Class for Exception
+    Base Class for any Error encountered in the Code
     """
     pass
 
@@ -51,6 +52,9 @@ class EntryProperty:
         self.actual_value = None
 
     def convert_to_si(self):
+        """
+        Converting Units to SI Units
+        """
         try:
             unit = self.units.index(self.unit_input)
             if unit == 0:
@@ -62,6 +66,9 @@ class EntryProperty:
             raise GasDynamicsCalculatorError("Unit Conversion failed" + error)
 
     def convert_from_si(self):
+        """
+        Convert Units from SI
+        """
         try:
             unit = self.units.index(self.unit_input)
             if unit == 0:
@@ -74,6 +81,9 @@ class EntryProperty:
 
     @property
     def units(self):
+        """
+        Provide List of defined Units in a list
+        """
         if self.type == "pressure":
             return unit_list_pressure
         elif self.type == "temperature":
@@ -81,6 +91,9 @@ class EntryProperty:
 
     @property
     def conversion(self):
+        """
+        Return List of Conversion Factors
+        """
         if self.type == "pressure":
             return unit_pressure_conversion
         elif self.type == "temperature":
@@ -88,6 +101,9 @@ class EntryProperty:
 
     @property
     def default_unit(self):
+        """
+        Return SI unit
+        """
         if self.type == "pressure":
             return unit_list_pressure[0]
         elif self.type == "temperature":
@@ -100,13 +116,14 @@ class EntryProperty:
         return self.text
 
 
-class TabForm:
+class TabForm(Frame):
     """
     A class containing different operations in a form.
     """
 
-    def __init__(self, frame):
+    def __init__(self, frame, status_bar_class):
         self.property_list = []
+        self.status_bar_class = status_bar_class
         # self.label_list = []
         self.field_list = []
         self.unit_list = []
@@ -131,12 +148,14 @@ class TabForm:
 
             field = Entry(self.frame)
             field.grid(row=row_count, column=1, ipadx="30")
+
             self.field_list.append(field)
 
             units = Combobox(self.frame, width=12, values=item.units, state="readonly")
             units.grid(column=3, row=row_count)
             units.current(0)
             self.unit_list.append(units)
+
             row_count += 1
 
     def clear_entries(self):
@@ -174,15 +193,6 @@ class TabForm:
         """
         Sanity Check of Input
         """
-        # CHECK IF ANY INPUT IS FALSE
-        # count_zero = 0
-        # for item in parameter_list:
-        #     if item == False:
-        #         count_zero += 0
-        # if not count_zero == 1:
-        #     raise GasDynamicsCalculatorError("Input is missing")
-        #     return False
-
         # CHECK IF ONLY ONE VARIABLE IS MISSING
         count_zero = 0
         for item in parameter_list:
@@ -193,7 +203,8 @@ class TabForm:
         elif count_zero > 1:
             raise GasDynamicsCalculatorError("More than One Input is not defined")
             # return False
-            # IF ALL CONDITIONS ARE MET
+
+        # IF ALL CONDITIONS ARE MET
         return True
 
     def put_output(self):
@@ -209,6 +220,9 @@ class TabForm:
             i += 1
 
     def read_form(self):
+        """
+        Function to read inputs  in the form
+        """
         i = 0
         try:
             while i != len(self.property_list):
@@ -226,10 +240,11 @@ class TabIdealCompression(Frame):
     Class for each Tab
     """
 
-    def __init__(self, nb):
+    def __init__(self, nb, status_bar_class):
         Frame.__init__(self, nb)
+        self.status_bar_class = status_bar_class
         self.parent = nb
-        self.form = TabForm(self)
+        self.form = TabForm(self, self.status_bar_class)
         # Property name, default value,
         self.form.add_property("Pressure 1", "pressure")
         self.form.add_property("Pressure 2", "pressure")
@@ -251,25 +266,21 @@ class TabIdealCompression(Frame):
         """
         eq = EquationSolver()
         self.form.read_form()
-
         p1 = self.form.property_list[0].actual_value
         p2 = self.form.property_list[1].actual_value
         t1 = self.form.property_list[2].actual_value
         t2 = self.form.property_list[3].actual_value
-
         try:
             self.form.sanity_check((p1, p2, t1, t2))
         except GasDynamicsCalculatorError as error:
             error = str(error)
             messagebox.showerror("Error", message=error)
-
-        p1, p2, t1, t2, n1 = eq.ideal_compression_p_vs_t(p1, p2, t1, t2, n)
-
+        n = self.status_bar_class.properties_air_dict['n']
+        p1, p2, t1, t2 = eq.ideal_compression_p_vs_t(p1, p2, t1, t2, n)
         self.form.property_list[0].actual_value = p1
         self.form.property_list[1].actual_value = p2
         self.form.property_list[2].actual_value = t1
         self.form.property_list[3].actual_value = t2
-
         self.form.put_output()
 
     def button_clear(self):
@@ -319,12 +330,52 @@ class GasDynamicsCalculator(Frame):
 
         # ESC closes the widget.
         self.winfo_toplevel().bind('<Escape>', lambda x: self.master.destroy())
+        # self.winfo_toplevel().bind('<Escape>', lambda x: self.exit_app())
 
-        self.flag_1 = False
-        self.flag_2 = False
+        # DISABLE RESIZING
+        self.winfo_toplevel().resizable(0, 0)
 
+        # STATUS BAR
+        self.status_bar = Label(self, text='Gas Dynamics Equation Calculator', borderwidth=1, font='Helv 10', anchor=W)
+        self.status_bar.pack(side="left", fill=X)
+
+        # INITIALIZE
         self.description_tab = None
         self.ideal_compression_work = None
+        self.status = None
+
+        # PROPERTIES OF AIR
+        self.properties_air_dict = {
+            'n': default_n,
+            'Cp': default_cp
+        }
+
+        # # DELETE
+        # self.flag_1 = False
+        # self.flag_2 = False
+
+    def create_panels(self):
+        """
+        Create Cascading Panels
+        """
+        # create the notebook
+        nb = Notebook(self)
+
+        # extend bindings to top level window allowing
+        #   CTRL+TAB - cycles through tabs
+        #   SHIFT+CTRL+TAB - previous tab
+        #   ALT+K - select tab using mnemonic (K = underlined letter)
+        nb.enable_traversal()
+
+        self.ideal_compression_work = TabIdealCompression(nb, status_bar_class=self)
+        nb.add(self.ideal_compression_work, text="Ideal Compression", underline=0, padding=2)
+        self.ideal_compression_work.bind("<Enter>",
+                                         lambda a: self.status_bar.configure(text="Isentropic Compression"))
+        self.ideal_compression_work.bind("<Leave>", lambda a: self.status_bar.configure(text=" "))
+
+        self.description_tab = DescriptionTab(nb)
+        nb.add(self.description_tab, text="Name of Tab", underline=2, padding=2)
+        nb.pack(fill=BOTH, expand=Y, padx=2, pady=3)
 
     def create_menu_panels(self):
         """
@@ -334,40 +385,29 @@ class GasDynamicsCalculator(Frame):
         self.master.option_add('*tearOff', False)  # disable all tear off's
         # noinspection PyAttributeOutsideInit
         self.menu = Menu(self.master, name='menu')
-        self.build_submenus()
+        self.add_options_menu()
+        self.add_help_menu()
+
         self.master.config(menu=self.menu)
         # set up standard bindings for the Menu class
         # (essentially to capture mouse enter/leave events)
-        # self.menu.bind_class('Menu', '<<MenuSelect>>', self.update_status)
-
-    def build_submenus(self):
-        """
-        Function to add sub menus
-        :return: None
-        """
-        self.add_options_menu()
-        self.add_help_menu()
-        # DELETE
+        self.menu.bind_class('Menu', '<<MenuSelect>>', self.update_status)
 
     def add_options_menu(self):
         """
         Adding Options Menu
-        :return: None
         """
         options_menu = Menu(self.menu, name='options_menu')
         self.menu.add_cascade(label='Options', menu=options_menu, underline=0)
-        options_menu.add_command(label='Properties of Air',
-                                 command=self.properties_of_air)
-        self.add_sub_menu(options_menu)  # check buttons
+        options_menu.add_command(label='Properties of Fluid', command=self.properties_of_air)
+
+        # self.add_sub_menu(options_menu)  # check buttons
         options_menu.add_separator()
-        options_menu.add_command(label='Exit',
-                                 command=self.exit_app)
+        options_menu.add_command(label='Exit', command=self.exit_app)
 
     def esc_exit_app(self, event):
         """
         Escape closes the Widget
-        :param event:
-        :return:
         """
         if event:
             self.exit_app()
@@ -380,22 +420,6 @@ class GasDynamicsCalculator(Frame):
         response = messagebox.askyesno(title="Exit", message="Are you sure you wish to Quit?")
         if response:
             self.master.destroy()
-
-    def add_sub_menu(self, cascades):
-        # build the Cascades->Check Buttons submenu
-        check = Menu(cascades)
-        cascades.add_cascade(label='Functionality Here', underline=0,
-                             menu=check)
-        check.add_checkbutton(label='Option 1 Here',
-                              command=self.do_action_1)
-        check.add_checkbutton(label='Option 2 Here',
-                              command=self.do_action_2)
-
-    def do_action_1(self):
-        self.flag_1 = not self.flag_1
-
-    def do_action_2(self):
-        self.flag_2 = not self.flag_2
 
     def add_help_menu(self):
         """
@@ -426,17 +450,9 @@ class GasDynamicsCalculator(Frame):
 
         info_msg = "A simple tool to calculate essential Gas Dynamic parameters " \
                    + "All Rights Reserved" + "\n"
-        info_msg += "Code has the following dependencies-" + "\n"
-        info_msg += "\t" + "Python v3.7.5" + "\n"
+        info_msg += "Compiled using Python v3.7.5" + "\n"
 
         panel = Label(window, text=info_msg)
-        panel.grid(row=1, column=0)
-
-        # img = Image.open('images//Logo.png')
-        # img = img.resize((250, 80), Image.ANTIALIAS)
-        # img = ImageTk.PhotoImage(img)
-        # panel = Label(window, image=img)
-        # panel.image = img
         panel.grid(row=1, column=0)
 
         ok_button = Button(window, text='Ok', command=window.destroy, width=10)
@@ -450,27 +466,76 @@ class GasDynamicsCalculator(Frame):
         """
         Menu to add or edit properties of Air
         """
-        pass
+        window_network_options = Toplevel(self)
+        window_network_options.title("Properties fo Air-")
+        window_network_options.iconbitmap('images//paper_airplane16X16.ico')
+        self.properties_of_air_form(window_network_options)
 
-    def create_panels(self):
+    def properties_of_air_form(self, window):
+        """
+        Form of global air porperties
+        """
+        option1 = Label(window, text="Enter Isentropic Compression -")
+        option2 = Label(window, text="Enter Specific Heat of Fluid [J/kg.K-")
 
-        demo_panel = Frame(self, name='demo')
-        demo_panel.pack(side=TOP, fill=BOTH, expand=Y)
+        # FIELD
+        self.option1_field = Entry(window)
+        self.option2_field = Entry(window)
 
-        # create the notebook
-        nb = Notebook(demo_panel, name='notebook')
+        button_accept = Button(window, text="Accept", command=lambda: self.properties_of_air_accept(window))
+        button_cancel = Button(window, text="Cancel", command=lambda: window.destroy())
+        button_reset_default = Button(window, text="Reset Default", command=self.properties_of_air_default)
 
-        # extend bindings to top level window allowing
-        #   CTRL+TAB - cycles through tabs
-        #   SHIFT+CTRL+TAB - previous tab
-        #   ALT+K - select tab using mnemonic (K = underlined letter)
-        nb.enable_traversal()
-        self.ideal_compression_work = TabIdealCompression(nb)
-        nb.add(self.ideal_compression_work, text="Ideal Compression", underline=0, padding=2)
+        # PLACEMENT
+        option1.grid(row=1, column=0)
+        option2.grid(row=2, column=0)
 
-        self.description_tab = DescriptionTab(nb)
-        nb.add(self.description_tab, text="Name of Tab", underline=2, padding=2)
-        nb.pack(fill=BOTH, expand=Y, padx=2, pady=3)
+        self.option1_field.grid(row=1, column=1, ipadx="50")
+        self.option2_field.grid(row=2, column=1, ipadx="50")
+
+        button_accept.grid(row=3, column=0)
+        button_cancel.grid(row=3, column=1)
+        button_reset_default.grid(row=3, column=3)
+        # button_reset_default.grid(row=3, column=2)
+
+        self.option1_field.bind("<Return>", lambda a: self.option2_field.focus_set())
+        self.option2_field.bind("<Return>", lambda a: button_accept.focus_set())
+
+        self.option1_field.insert(0, str(self.properties_air_dict['n']))
+        self.option2_field.insert(0, str(self.properties_air_dict['Cp']))
+
+    def properties_of_air_accept(self, tab):
+        """
+        Change global air properties
+        """
+        self.properties_air_dict['n'] = float(self.option1_field.get())
+        self.properties_air_dict['Cp'] = float(self.option2_field.get())
+        tab.destroy()
+
+    def properties_of_air_default(self):
+        """
+        Reset it to default air properties
+        """
+        self.option1_field.delete(0, END)
+        self.option1_field.insert(0, str(default_n))
+        self.option2_field.delete(0, END)
+        self.option2_field.insert(0, str(default_cp))
+
+    def update_status(self, evt):
+        """
+        Function to update the Status
+        :param evt: Mouse Enter event
+        """
+        try:
+            # triggered on mouse entry if a menu item has focus
+            # (focus occurs when user clicks on a top level menu item)
+
+            item = self.tk.eval('%s entrycget active -label' % evt.widget)
+            self.status_bar.configure(foreground='black',
+                                      text=item)
+        except TclError:
+            # no label available, ignore
+            pass
 
 
 if __name__ == '__main__':
