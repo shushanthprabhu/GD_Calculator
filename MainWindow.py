@@ -2,7 +2,6 @@
 # coding: utf-8
 
 __author__ = "Shushanth Prabhu"
-__email__ = "shushanth@gmail.com"
 __version__ = "1.0"
 
 # Built using Python 3.7.5
