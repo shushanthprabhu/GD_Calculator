@@ -32,7 +32,6 @@ def static_temperature(tt, ts, m, g):
 def static_pressure(pt, ps, m, g):
     """
     Solve Static Pressure Equation
-    WRONG FORMULA
     """
     if (pt == 0) and (ps * m) != 0:
         pt = ps * pow((1 + ((pow(m, 2) * (g - 1) / 2))), (g / (g - 1)))
