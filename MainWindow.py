@@ -2,6 +2,7 @@
 # coding: utf-8
 
 __author__ = "Shushanth Prabhu"
+__email__ = "shushanth@gmail.com"
 __version__ = "1.0"
 
 # Built using Python 3.7.5
@@ -9,7 +10,7 @@ __version__ = "1.0"
 from tkinter import Frame, Label, messagebox, Menu, Button, Entry
 from tkinter import Y, BOTH, LEFT, N, Toplevel, END, W, X, TclError  # TOP
 from tkinter.ttk import Notebook, Combobox
-from Equations import EquationSolver
+import Equations
 
 # py installer --hidden-import=pkg_resources.py2_warn --one file --no console MainWindow_RC.py
 # py installer MainWindow.spec
@@ -87,6 +88,8 @@ class EntryProperty:
             return unit_list_pressure
         elif self.type == "temperature":
             return unit_list_temperature
+        elif self.type == "constant":
+            return [1]
 
     @property
     def conversion(self):
@@ -97,6 +100,8 @@ class EntryProperty:
             return unit_pressure_conversion
         elif self.type == "temperature":
             return unit_temperature_conversion
+        elif self.type == "constant":
+            return []
 
     @property
     def default_unit(self):
@@ -107,6 +112,8 @@ class EntryProperty:
             return unit_list_pressure[0]
         elif self.type == "temperature":
             return unit_list_temperature[0]
+        elif self.type == "constant":
+            return [1]
 
     def __repr__(self):
         """
@@ -149,11 +156,11 @@ class TabForm(Frame):
             field.grid(row=row_count, column=1, ipadx="30")
 
             self.field_list.append(field)
-
-            units = Combobox(self.frame, width=12, values=item.units, state="readonly")
-            units.grid(column=3, row=row_count)
-            units.current(0)
-            self.unit_list.append(units)
+            if item.type != "constant":
+                units = Combobox(self.frame, width=12, values=item.units, state="readonly")
+                units.grid(column=3, row=row_count)
+                units.current(0)
+                self.unit_list.append(units)
 
             row_count += 1
 
@@ -215,7 +222,8 @@ class TabForm(Frame):
             self.field_list[i].delete(0, END)
             self.property_list[i].read_value = self.property_list[i].convert_from_si()
             self.field_list[i].insert(0, round(self.property_list[i].read_value, 6))
-            self.unit_list[i].set(self.property_list[i].unit_input)
+            if self.property_list[i].type != "constant":
+                self.unit_list[i].set(self.property_list[i].unit_input)
             i += 1
 
     def read_form(self):
@@ -226,12 +234,36 @@ class TabForm(Frame):
         try:
             while i != len(self.property_list):
                 self.property_list[i].read_value = self.get_input(self.field_list[i], i)
-                self.property_list[i].unit_input = self.unit_list[i].get()
+                if self.property_list[i].type != "constant":
+                    self.property_list[i].unit_input = self.unit_list[i].get()
+                else:
+                    self.property_list[i].unit_input = 1
                 self.property_list[i].actual_value = self.property_list[i].convert_to_si()
                 i += 1
         except GasDynamicsCalculatorError as error:
             error = str(error)
             messagebox.showerror("Error", message=error)
+
+    def add_all_properties(self, property_list):
+        """
+        Functions add properties from list to class
+        """
+        for item in property_list:
+            self.add_property(item[0], item[1])
+        self.arrange_form()
+
+    def return_actual_value(self):
+        return_list = []
+        for item in self.property_list:
+            return_list.append(item.actual_value)
+        return return_list
+
+    def update_actual_value(self, property_list):
+        i = 0
+        for item in property_list:
+            self.property_list[i].actual_value = item
+            i += 1
+        return property_list
 
 
 class TabIdealCompression(Frame):
@@ -244,42 +276,32 @@ class TabIdealCompression(Frame):
         self.status_bar_class = status_bar_class
         self.parent = nb
         self.form = TabForm(self, self.status_bar_class)
-        # Property name, default value,
-        self.form.add_property("Pressure 1", "pressure")
-        self.form.add_property("Pressure 2", "pressure")
-        self.form.add_property("Temperature 1", "temperature")
-        self.form.add_property("Temperature 2", "temperature")
 
-        # adding Labels and Forms
-        self.form.arrange_form()
+        # Property name, default type,
+        property_list = ("Pressure 1", "pressure"), ("Pressure 2", "pressure"), ("Temperature 1", "temperature"), (
+            "Temperature 2", "temperature")
+        self.form.add_all_properties(property_list)
 
         button_accept = Button(self, text="Calculate", command=self.button_calculate)
         button_clear = Button(self, text="Clear", command=self.button_clear)
-        button_accept.grid(row=6, column=0)
-        button_clear.grid(row=6, column=1)
+        button_accept.grid(row=len(property_list) + 1, column=0)
+        button_clear.grid(row=len(property_list) + 1, column=1)
 
     def button_calculate(self):
         """
         performs sanity check of the input
         Solves the Equation
         """
-        eq = EquationSolver()
         self.form.read_form()
-        p1 = self.form.property_list[0].actual_value
-        p2 = self.form.property_list[1].actual_value
-        t1 = self.form.property_list[2].actual_value
-        t2 = self.form.property_list[3].actual_value
+        p1, p2, t1, t2 = self.form.return_actual_value()
         try:
             self.form.sanity_check((p1, p2, t1, t2))
         except GasDynamicsCalculatorError as error:
             error = str(error)
             messagebox.showerror("Error", message=error)
         n = self.status_bar_class.properties_air_dict['n']
-        p1, p2, t1, t2 = eq.ideal_compression_p_vs_t(p1, p2, t1, t2, n)
-        self.form.property_list[0].actual_value = p1
-        self.form.property_list[1].actual_value = p2
-        self.form.property_list[2].actual_value = t1
-        self.form.property_list[3].actual_value = t2
+        p1, p2, t1, t2 = Equations.ideal_compression_p_vs_t(p1, p2, t1, t2, n)
+        self.form.update_actual_value((p1, p2, t1, t2))
         self.form.put_output()
 
     def button_clear(self):
@@ -289,26 +311,95 @@ class TabIdealCompression(Frame):
         self.form.clear_entries()
 
 
-class DescriptionTab(Frame):
+class TabStaticTemperature(Frame):
     """
-    Placeholder for other Tabs
+    Class for each Tab
     """
 
-    # TODO Delete the class
-    def __init__(self, nb):
+    def __init__(self, nb, status_bar_class):
         Frame.__init__(self, nb)
+        self.status_bar_class = status_bar_class
         self.parent = nb
+        self.form = TabForm(self, self.status_bar_class)
 
-        msg = ["Start Creating Widgets here-"]
+        # Property name, default type,
+        property_list = (("Total Temeprature", "temperature"), ("Static Temperature", "temperature"), (
+            "Mach Number", "constant"))
+        self.form.add_all_properties(property_list)
 
-        self.lbl = Label(self, wraplength='4i', justify=LEFT, anchor=N,
-                         text=''.join(msg))
-        self.lbl.pack()
+        button_accept = Button(self, text="Calculate", command=self.button_calculate)
+        button_clear = Button(self, text="Clear", command=self.button_clear)
+        button_accept.grid(row=len(property_list) + 1, column=0)
+        button_clear.grid(row=len(property_list) + 1, column=1)
 
-        # widget
-        self.btn = Button(self, text='Press')
-        self.btn.pack()
+    def button_calculate(self):
+        """
+        performs sanity check of the input
+        Solves the Equation
+        """
+        self.form.read_form()
+        tt, ts, ma = self.form.return_actual_value()
+        try:
+            self.form.sanity_check((tt, ts, ma))
+        except GasDynamicsCalculatorError as error:
+            error = str(error)
+            messagebox.showerror("Error", message=error)
+        n = self.status_bar_class.properties_air_dict['n']
+        ts, tt, ma = Equations.static_temperature(tt, ts, ma, n)
+        self.form.update_actual_value((tt, ts, ma))
+        self.form.put_output()
 
+    def button_clear(self):
+        """
+        Clears the form with default values
+        """
+        self.form.clear_entries()
+
+
+
+class TabStaticPressure(Frame):
+    """
+    Class for each Tab
+    """
+
+    def __init__(self, nb, status_bar_class):
+        Frame.__init__(self, nb)
+        self.status_bar_class = status_bar_class
+        self.parent = nb
+        self.form = TabForm(self, self.status_bar_class)
+
+        # Property name, default type,
+        property_list = (("Total Pressure", "pressure"), ("Static Pressure", "pressure"), (
+            "Mach Number", "constant"))
+        self.form.add_all_properties(property_list)
+
+        button_accept = Button(self, text="Calculate", command=self.button_calculate)
+        button_clear = Button(self, text="Clear", command=self.button_clear)
+        button_accept.grid(row=len(property_list) + 1, column=0)
+        button_clear.grid(row=len(property_list) + 1, column=1)
+
+    def button_calculate(self):
+        """
+        performs sanity check of the input
+        Solves the Equation
+        """
+        self.form.read_form()
+        pt, ps, ma = self.form.return_actual_value()
+        try:
+            self.form.sanity_check((pt, ps, ma))
+        except GasDynamicsCalculatorError as error:
+            error = str(error)
+            messagebox.showerror("Error", message=error)
+        n = self.status_bar_class.properties_air_dict['n']
+        pt, ps, ma = Equations.static_pressure(pt, ps, ma, n)
+        self.form.update_actual_value((ps, pt, ma))
+        self.form.put_output()
+
+    def button_clear(self):
+        """
+        Clears the form with default values
+        """
+        self.form.clear_entries()
 
 class GasDynamicsCalculator(Frame):
     """
@@ -339,7 +430,7 @@ class GasDynamicsCalculator(Frame):
         self.status_bar.pack(side="left", fill=X)
 
         # INITIALIZE
-        self.description_tab = None
+        self.static_temperature = None
         self.ideal_compression_work = None
         self.status = None
 
@@ -372,8 +463,19 @@ class GasDynamicsCalculator(Frame):
                                          lambda a: self.status_bar.configure(text="Isentropic Compression"))
         self.ideal_compression_work.bind("<Leave>", lambda a: self.status_bar.configure(text=" "))
 
-        self.description_tab = DescriptionTab(nb)
-        nb.add(self.description_tab, text="Name of Tab", underline=2, padding=2)
+        self.static_temperature = TabStaticTemperature(nb, status_bar_class=self)
+        nb.add(self.static_temperature, text="Static Temperature", underline=7, padding=2)
+        self.static_temperature.bind("<Enter>",
+                                     lambda a: self.status_bar.configure(text="Static Temperature"))
+        self.static_temperature.bind("<Leave>", lambda a: self.status_bar.configure(text=" "))
+
+        self.static_pressure = TabStaticPressure(nb, status_bar_class=self)
+        nb.add(self.static_pressure, text="Static Pressure", underline=7, padding=2)
+        self.static_pressure.bind("<Enter>",
+                                     lambda a: self.status_bar.configure(text="Static Pressure"))
+        self.static_pressure.bind("<Leave>", lambda a: self.status_bar.configure(text=" "))
+
+
         nb.pack(fill=BOTH, expand=Y, padx=2, pady=3)
 
     def create_menu_panels(self):
@@ -475,7 +577,7 @@ class GasDynamicsCalculator(Frame):
         Form of global air porperties
         """
         option1 = Label(window, text="Enter Isentropic Compression -")
-        option2 = Label(window, text="Enter Specific Heat of Fluid [J/kg.K-")
+        option2 = Label(window, text="Enter Specific Heat of Fluid [J/kg.K]-")
 
         # FIELD
         self.option1_field = Entry(window)
