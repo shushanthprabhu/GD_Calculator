@@ -41,8 +41,18 @@ def static_pressure(pt, ps, m, g):
         m = pow((pow(pt / ps, (g - 1) / g) - 1) / ((g - 1) / 2), 0.5)
     return ps, pt, m
 
+def shaft_work(w,t1,t2,cp):
+    """
+    Solve shaft work
+    """
+    if (w == 0) and (t1 * t2,cp) != 0:
+        w = cp*(t1-t2)
+    if (t1 == 0) and (w * t2) != 0:
+        t1 = w/cp+t2
+    if (t2 == 0) and (w * t1) != 0:
+        t2 = t1- w/cp
+    return w,t1,t2
 
-# Shaft Work mCP DT
 # Compressor Effeciency
 # Flat Plate Correlation
 # Duct Correlation
