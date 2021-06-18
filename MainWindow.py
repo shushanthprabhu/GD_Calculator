@@ -8,8 +8,8 @@ __version__ = "1.0"
 # Built using Python 3.7.5
 
 from tkinter import Frame, Label, messagebox, Menu, Button, Entry
-from tkinter import Y, BOTH, LEFT, N, Toplevel, END, W, X, TclError  # TOP
-from tkinter.ttk import Notebook, Combobox
+from tkinter import Y, BOTH, LEFT, Toplevel, END, N, E, W, S, X, TclError  # TOP, N
+from tkinter.ttk import Notebook, Combobox, Treeview
 import Equations
 
 # py installer --hidden-import=pkg_resources.py2_warn --one file --no console MainWindow_RC.py
@@ -133,7 +133,54 @@ class TabForm(Frame):
         # self.label_list = []
         self.field_list = []
         self.unit_list = []
-        self.frame = frame
+        self.main_frame = frame
+        self.frame = Frame(self.main_frame)
+        self.frame.grid(row=1, column=1)
+
+        self.tv = Treeview(self.main_frame, height=4)
+        self.tv.grid(row=1, column=2)
+        self.tree_view_number = 1
+
+    def create_tree(self):
+        column_list = []
+        for item in self.property_list:
+            column_list.append(item.text)
+        self.tv['columns'] = column_list
+        self.tv.heading("#0", text="Index")
+        self.tv.column("#0", anchor='center', width=40)
+
+        for item in column_list:
+            self.tv.heading(item, text=item)
+            self.tv.column(item, anchor='center', width=100)
+
+    def tree_delete_first_row(self):
+        """
+        Deletes First row of data
+        """
+        if self.tree_view_number > 4:
+            a = self.tv.get_children()[0]
+            self.tv.delete(a)
+
+    def clear_table(self):
+        """
+        Clears the table
+        """
+        children_list = self.tv.get_children()
+        for item in children_list:
+            self.tv.delete(item)
+        self.tree_view_number = 1
+
+    def tree_insert_value(self, insert_list):
+        """
+        Inserts values in trees.
+        """
+        display_list = []
+        for item in insert_list:
+            display_list.append(str(round(item, 6)))
+
+        self.tree_delete_first_row()
+        self.tv.insert('', 'end', text=str(self.tree_view_number), values=display_list)
+        self.tree_view_number += 1
 
     def add_property(self, name, property_type):
         """
@@ -163,6 +210,8 @@ class TabForm(Frame):
                 self.unit_list.append(units)
 
             row_count += 1
+
+        self.create_tree()
 
     def clear_entries(self):
         """
@@ -218,13 +267,17 @@ class TabForm(Frame):
         Updates the parameter list
         """
         i = 0
+        tree_list = []
         while i != len(self.property_list):
             self.field_list[i].delete(0, END)
             self.property_list[i].read_value = self.property_list[i].convert_from_si()
             self.field_list[i].insert(0, round(self.property_list[i].read_value, 6))
             if self.property_list[i].type != "constant":
                 self.unit_list[i].set(self.property_list[i].unit_input)
+            tree_list.append(round(self.property_list[i].read_value, 6))
             i += 1
+
+        self.tree_insert_value(tree_list)
 
     def read_form(self):
         """
@@ -284,8 +337,16 @@ class TabIdealCompression(Frame):
 
         button_accept = Button(self, text="Calculate", command=self.button_calculate)
         button_clear = Button(self, text="Clear", command=self.button_clear)
+        button_clear_table = Button(self, text="Clear Table", command=self.button_clear_table)
         button_accept.grid(row=len(property_list) + 1, column=0)
         button_clear.grid(row=len(property_list) + 1, column=1)
+        button_clear_table.grid(row=len(property_list) + 1, column=2)
+
+    def button_clear_table(self):
+        """
+        Clear Table
+        """
+        self.form.clear_table()
 
     def button_calculate(self):
         """
@@ -299,6 +360,7 @@ class TabIdealCompression(Frame):
         except GasDynamicsCalculatorError as error:
             error = str(error)
             messagebox.showerror("Error", message=error)
+            return
         n = self.status_bar_class.properties_air_dict['n']
         p1, p2, t1, t2 = Equations.ideal_compression_p_vs_t(p1, p2, t1, t2, n)
         self.form.update_actual_value((p1, p2, t1, t2))
@@ -329,8 +391,16 @@ class TabStaticTemperature(Frame):
 
         button_accept = Button(self, text="Calculate", command=self.button_calculate)
         button_clear = Button(self, text="Clear", command=self.button_clear)
+        button_clear_table = Button(self, text="Clear Table", command=self.button_clear_table)
         button_accept.grid(row=len(property_list) + 1, column=0)
         button_clear.grid(row=len(property_list) + 1, column=1)
+        button_clear_table.grid(row=len(property_list) + 1, column=2)
+
+    def button_clear_table(self):
+        """
+        Clear Table
+        """
+        self.form.clear_table()
 
     def button_calculate(self):
         """
@@ -344,6 +414,7 @@ class TabStaticTemperature(Frame):
         except GasDynamicsCalculatorError as error:
             error = str(error)
             messagebox.showerror("Error", message=error)
+            return
         n = self.status_bar_class.properties_air_dict['n']
         ts, tt, ma = Equations.static_temperature(tt, ts, ma, n)
         self.form.update_actual_value((tt, ts, ma))
@@ -354,7 +425,6 @@ class TabStaticTemperature(Frame):
         Clears the form with default values
         """
         self.form.clear_entries()
-
 
 
 class TabStaticPressure(Frame):
@@ -375,8 +445,16 @@ class TabStaticPressure(Frame):
 
         button_accept = Button(self, text="Calculate", command=self.button_calculate)
         button_clear = Button(self, text="Clear", command=self.button_clear)
+        button_clear_table = Button(self, text="Clear Table", command=self.button_clear_table)
         button_accept.grid(row=len(property_list) + 1, column=0)
         button_clear.grid(row=len(property_list) + 1, column=1)
+        button_clear_table.grid(row=len(property_list) + 1, column=2)
+
+    def button_clear_table(self):
+        """
+        Clear Table
+        """
+        self.form.clear_table()
 
     def button_calculate(self):
         """
@@ -390,6 +468,7 @@ class TabStaticPressure(Frame):
         except GasDynamicsCalculatorError as error:
             error = str(error)
             messagebox.showerror("Error", message=error)
+            return
         n = self.status_bar_class.properties_air_dict['n']
         pt, ps, ma = Equations.static_pressure(pt, ps, ma, n)
         self.form.update_actual_value((ps, pt, ma))
@@ -400,6 +479,7 @@ class TabStaticPressure(Frame):
         Clears the form with default values
         """
         self.form.clear_entries()
+
 
 class GasDynamicsCalculator(Frame):
     """
@@ -426,13 +506,18 @@ class GasDynamicsCalculator(Frame):
         self.winfo_toplevel().resizable(0, 0)
 
         # STATUS BAR
-        self.status_bar = Label(self, text='Gas Dynamics Equation Calculator', borderwidth=1, font='Helv 10', anchor=W)
+        self.status_bar = Label(self,
+                                text='Ctrl+Tab- Next Tab, Shift+Ctrl+Tab - Previous Tab',
+                                borderwidth=1, font='Helv 10', anchor=W)
         self.status_bar.pack(side="left", fill=X)
 
         # INITIALIZE
         self.static_temperature = None
         self.ideal_compression_work = None
+        self.static_pressure = None
         self.status = None
+        self.option1_field = None
+        self.option2_field = None
 
         # PROPERTIES OF AIR
         self.properties_air_dict = {
@@ -472,9 +557,8 @@ class GasDynamicsCalculator(Frame):
         self.static_pressure = TabStaticPressure(nb, status_bar_class=self)
         nb.add(self.static_pressure, text="Static Pressure", underline=7, padding=2)
         self.static_pressure.bind("<Enter>",
-                                     lambda a: self.status_bar.configure(text="Static Pressure"))
+                                  lambda a: self.status_bar.configure(text="Static Pressure"))
         self.static_pressure.bind("<Leave>", lambda a: self.status_bar.configure(text=" "))
-
 
         nb.pack(fill=BOTH, expand=Y, padx=2, pady=3)
 
