@@ -142,6 +142,9 @@ class TabForm(Frame):
         self.tree_view_number = 1
 
     def create_tree(self):
+        """
+        Function to create a tree.
+        """
         column_list = []
         for item in self.property_list:
             column_list.append(item.text)
@@ -306,6 +309,10 @@ class TabForm(Frame):
         self.arrange_form()
 
     def return_actual_value(self):
+        """
+        Returns value after conversion
+        :return:
+        """
         return_list = []
         for item in self.property_list:
             return_list.append(item.actual_value)
@@ -600,7 +607,6 @@ class GasDynamicsCalculator(Frame):
     def exit_app(self):
         """
         Are you sure prompt before exiting the Widget
-        :return:
         """
         response = messagebox.askyesno(title="Exit", message="Are you sure you wish to Quit?")
         if response:
@@ -609,7 +615,6 @@ class GasDynamicsCalculator(Frame):
     def add_help_menu(self):
         """
         Adding Options Menu
-        :return: None
         """
         disclaimer_msg = "THE AUTHORS DOES NOT WARRANT THE CORRECTNESS OF ANY RESULTS OBTAINED WITH THIS TOOL." \
                          + "IN NO EVENT WILL THE AUTHORS OR ANY OF ITS EMPLOYEES BE LIABLE TO YOU FOR DAMAGES," \
